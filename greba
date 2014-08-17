@@ -14,7 +14,7 @@
 #                                                                         #
 ###########################################################################
 
-Greba_version="0.1"
+Greba_version="0.2"
 Copyright_info="Copyright 2014 Jean Waghetti"
 License_info=\
 "This work is free. You can redistribute it and/or modify it under the\n"\
@@ -141,7 +141,7 @@ function f_update_repository()
 		continue
 	fi
 
-	git pull
+	git fetch
 
 	if [ $? != 0 ]
 	then
