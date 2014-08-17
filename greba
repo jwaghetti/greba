@@ -1,0 +1,357 @@
+#!/bin/bash
+
+###########################################################################
+#                       Greba - Git Repository Backup                     #
+###########################################################################
+#                                                                         #
+# Copyright 2014 Jean Waghetti.                                           #
+#                                                                         #
+###########################################################################
+#                                                                         #
+# This work is free. You can redistribute it and/or modify it under the   #
+# terms of the Do What The Fuck You Want To Public License, Version 2,    #
+# as published by Sam Hocevar. See http://www.wtfpl.net/ for more details.#
+#                                                                         #
+###########################################################################
+
+Greba_version="0.1"
+Copyright_info="Copyright 2014 Jean Waghetti"
+License_info=\
+"This work is free. You can redistribute it and/or modify it under the\n"\
+"terms of the Do What The Fuck You Want To Public License, Version 2,\n"\
+"as published by Sam Hocevar. See http://www.wtfpl.net/ for more details.\n"
+
+########################################
+# configuration variables
+# cannot be modified (yet)
+
+Greba_backup_dir="backups"
+
+Backup_prefix="backup"
+Backup_suffix=".tar.gz"
+
+########################################
+# command line arguments
+
+Opt_no_update="--no-update"
+Opt_no_backup="--no-backup"
+Opt_delete_older="--delete-older-than"
+Opt_usage="--usage"
+Opt_version="--version"
+Opt_help="--help"
+
+########################################
+# 
+
+Today_is=$(date +"%Y%m%d")
+Backup_prefix="${Backup_prefix}-${Today_is}-"
+
+should_print_version=0
+should_print_usage=0
+should_create_backups=1
+should_update_repositories=1
+
+error=0;
+
+message="All repositories updated and backed up."
+
+declare -i delete_files_older_than=0
+action_directory="."
+current_directory=$(pwd)
+
+
+########################################
+
+function f_print_name()
+{
+	echo
+	echo "Greba - Git Repository Backup"
+	echo
+}
+
+
+function f_print_version_info()
+{
+	echo "Version $Greba_version"
+	echo
+
+	echo $Copyright_info
+	echo
+
+	echo -e $License_info
+}
+
+########################################
+
+function f_print_usage_info()
+{
+
+	echo "Creates backups from Git repositories. Repositories will be"
+	echo "fetched from origin and compressed backups created."
+	echo
+
+
+	echo -e \
+		"Usage:\n"\
+		 "\tgreba [OPTIONS] [directory]\n"
+	echo
+
+	echo "Options:"
+
+	echo -e "\t--delete-older-than date:\n"\
+		"\t\tdeletes compressed backups older than given date"\
+		" (in format YYYYmmdd)."
+	echo
+
+	echo -e "\t--help:\n"\
+		"\t\tdisplays setup and options for Greba."
+	echo
+
+	echo -e "\t--no-backup:\n"\
+		"\t\tdoes not create compressed backups."
+	echo
+
+	echo -e "\t--no-update:\n"\
+		"\t\tdoes not fetch changes from origin."
+	echo
+
+	echo -e "\t--version:\n"\
+		"\t\tdisplays version, copyright and licensing info."
+	echo
+
+	echo "Setup:"
+	
+	echo -e \
+		"\t- Clone the Git repositories to be backed up on a directory.\n"\
+     	"\t- Give each repository directory the '.git' suffix."
+	echo
+}
+
+########################################
+
+function f_update_repository()
+{
+	local repository=$1
+	local repo_error=0
+
+	cd $repository
+
+	if [ $? != 0 ]
+	then
+		continue
+	fi
+
+	git pull
+
+	if [ $? != 0 ]
+	then
+		repo_error=1
+	fi
+
+	git-fsck --strict --full
+
+	if [ $? != 0 ]
+	then
+		repo_error=1
+	fi
+
+	cd ..
+	return $repo_error
+}
+
+########################################
+
+function f_backup_repository()
+{
+	local repository=$1
+	tar -czf ${Backup_prefix}${repository}${Backup_suffix} $repository
+	return $?
+}
+
+########################################
+
+function f_delete_backups()
+{
+	local maximum_date=$1
+	local backup_date=0
+	cd $Greba_backup_dir
+	for backup in *"$Backup_suffix"
+	do
+		backup_date=$(echo $backup | sed "s:^.*\([0-9]\{8\}\).*$:\1:")
+			echo $backup_date
+		if [ $backup_date -lt $maximum_date ]
+		then
+			echo "Removing $backup"
+			rm "${backup}"
+		fi
+	done
+	cd ..
+}
+
+########################################
+
+function f_read_parameters()
+{
+	local par=0
+	local par_idx=1
+	local par_size=$#
+	local par_error=0;
+
+	while [ $par_idx -le $par_size ]	
+	do
+
+		par=${!par_idx}
+
+		case $par in
+
+			$Opt_no_update )
+				echo "Not fetching from origin."
+				should_update_repositories=0;
+				;;
+
+			$Opt_no_backup )
+				echo "Not backing up compressed files."
+				should_create_backups=0
+				;;
+
+			$Opt_delete_older )
+
+				((par_idx++))
+				delete_files_older_than=${!par_idx}
+
+				if [ $delete_files_older_than == 0 ]
+				then
+					echo "Incorrect date format: ${!par_idx}."\
+						" Should be YYYYmmdd"
+					par_error=1
+				else 
+					echo "Deleting backups older than "\
+						"$delete_files_older_than"
+				fi
+				;;
+
+			$Opt_version )
+				should_print_version=1
+				;;
+
+			$Opt_usage )
+				;&
+			$Opt_help )
+				should_print_usage=1
+				;;
+
+			*)
+				if [ $par_idx == $par_size ]
+				then
+					action_directory=$par
+					if [[ -d $action_directory ]]
+					then
+						echo "Directory set to ${action_directory}"
+					else
+						echo "No such directory: ${action_directory}"
+						par_error=1
+					fi
+				else
+					echo "Option not recognized: $par"
+					par_error=1	
+				fi
+				;;
+		esac
+
+		((par_idx++))
+		if [ $par_error != 0 ]
+		then
+			break
+		fi
+
+	done
+
+	if [ $par_error != 0 ]
+	then
+		echo "Aborting."
+		return $par_error
+	fi
+
+	return 0
+}
+
+########################################
+# The program itself
+
+f_read_parameters $@
+
+if [ $should_print_version != 0 ] || [ $should_print_usage != 0 ]
+then
+
+	f_print_name
+
+	if [ $should_print_version != 0 ]
+	then
+		f_print_version_info
+	fi
+
+	if [ $should_print_usage != 0 ]
+	then
+		f_print_usage_info
+	fi
+
+	exit 0
+fi
+
+cd $action_directory
+
+for repository in *.git
+do
+	echo
+	echo "##############################"
+	echo
+	echo "repository: $repository"
+	echo
+
+	if [  $should_update_repositories != 0 ]
+	then
+		f_update_repository $repository
+	fi
+
+	if [ $? != 0 ]
+	then
+		error=1
+	else
+		if [ $should_create_backups != 0 ]
+		then
+			f_backup_repository $repository
+		fi
+	fi
+done
+
+echo
+echo "##############################"
+
+if [ $error != 0 ]
+then
+	message="Check error messages."
+fi
+
+if [ $should_create_backups != 0 ]
+then
+	
+	if [ ! -e $Greba_backup_dir ]
+	then
+		echo "Creating backup dir '$Greba_backup_dir'."
+		mkdir $Greba_backup_dir
+	fi
+
+	mv *"${Backup_suffix}" $Greba_backup_dir
+fi
+
+echo
+echo $message
+echo
+
+if [ $delete_files_older_than != 0 ]
+then
+	f_delete_backups $delete_files_older_than
+fi
+
+cd $current_directory
+
