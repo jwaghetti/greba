@@ -1,0 +1,23 @@
+# bash completion for greba                                  -*- shell-script -*-
+
+_greba()
+{
+    local cur prev words cword
+    _init_completion || return
+
+    #for completing the directory to backup - not supported yet
+    #case $prev in
+    #    --the_folder_to_backup )
+    #        _filedir
+    #        return 0
+    #        ;;
+    #esac
+
+    if [[ "$cur" == -* ]]; then
+        COMPREPLY=( $( compgen -W '$(greba --dump-options)' -- "$cur" ) )
+    fi
+    return 0
+} &&
+complete -F _greba -o default greba 
+
+# ex: ts=4 sw=4 et filetype=sh

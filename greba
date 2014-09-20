@@ -36,6 +36,7 @@ Backup_suffix=".tar.gz"
 Opt_no_update="--no-update"
 Opt_no_backup="--no-backup"
 Opt_delete_older="--delete-older-than"
+Opt_dump_options="--dump-options"
 Opt_usage="--usage"
 Opt_version="--version"
 Opt_help="--help"
@@ -69,6 +70,7 @@ function f_print_name()
 	echo
 }
 
+########################################
 
 function f_print_version_info()
 {
@@ -79,6 +81,20 @@ function f_print_version_info()
 	echo
 
 	echo -e $License_info
+}
+
+########################################
+
+function f_dump_options()
+{
+	echo "${Opt_delete_older}"
+	echo "${Opt_dump_options}"
+	echo "${Opt_help}"
+	echo "${Opt_no_backup}"
+	echo "${Opt_no_update}"
+	echo "${Opt_usage}"
+	echo "${Opt_version}"
+
 }
 
 ########################################
@@ -98,24 +114,28 @@ function f_print_usage_info()
 
 	echo "Options:"
 
-	echo -e "\t--delete-older-than date:\n"\
+	echo -e "\t${Opt_delete_older} date:\n"\
 		"\t\tdeletes compressed backups older than given date"\
 		" (in format YYYYmmdd)."
 	echo
 
-	echo -e "\t--help:\n"\
+	echo -e "\t${Opt_dump_options}:\n"\
+		"\t\tlists all options for greba. Does nothing more."
+	echo
+
+	echo -e "\t${Opt_help}:\n"\
 		"\t\tdisplays setup and options for Greba."
 	echo
 
-	echo -e "\t--no-backup:\n"\
+	echo -e "\t${Opt_no_backup}:\n"\
 		"\t\tdoes not create compressed backups."
 	echo
 
-	echo -e "\t--no-update:\n"\
+	echo -e "\t${Opt_no_update}:\n"\
 		"\t\tdoes not fetch changes from origin."
 	echo
 
-	echo -e "\t--version:\n"\
+	echo -e "\t${Opt_version}:\n"\
 		"\t\tdisplays version, copyright and licensing info."
 	echo
 
@@ -230,6 +250,10 @@ function f_read_parameters()
 				fi
 				;;
 
+			$Opt_dump_options )
+				should_dump_options=1;
+				;;
+
 			$Opt_version )
 				should_print_version=1
 				;;
@@ -279,6 +303,12 @@ function f_read_parameters()
 # The program itself
 
 f_read_parameters $@
+
+if [ $should_dump_options != 0 ]
+then
+	f_dump_options
+	exit 0
+fi
 
 if [ $should_print_version != 0 ] || [ $should_print_usage != 0 ]
 then
