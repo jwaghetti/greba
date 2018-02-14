@@ -5,6 +5,8 @@ fetching changes from a central repository
 (origin) and backing them up in compressed
 tarballs.
 
+Official Public Repository: https://gitlab.com/jwaghetti/greba.
+
 ### Setup
 
 Clone git repositories to be backup up on a
